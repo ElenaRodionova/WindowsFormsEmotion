@@ -87,12 +87,12 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.dataGridViewEmotions.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dataGridViewEmotions.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnEnter;
-            this.dataGridViewEmotions.Location = new System.Drawing.Point(15, 80);
+            this.dataGridViewEmotions.Location = new System.Drawing.Point(12, 79);
             this.dataGridViewEmotions.Name = "dataGridViewEmotions";
             this.dataGridViewEmotions.ReadOnly = true;
             this.dataGridViewEmotions.RowHeadersWidth = 51;
             this.dataGridViewEmotions.RowTemplate.Height = 24;
-            this.dataGridViewEmotions.Size = new System.Drawing.Size(801, 400);
+            this.dataGridViewEmotions.Size = new System.Drawing.Size(803, 422);
             this.dataGridViewEmotions.TabIndex = 5;
             this.dataGridViewEmotions.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridViewEmotions_CellContentClick);
             // 
@@ -110,9 +110,9 @@
             // 
             this.panelEmotions.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.panelEmotions.Location = new System.Drawing.Point(872, 202);
+            this.panelEmotions.Location = new System.Drawing.Point(888, 14);
             this.panelEmotions.Name = "panelEmotions";
-            this.panelEmotions.Size = new System.Drawing.Size(100, 100);
+            this.panelEmotions.Size = new System.Drawing.Size(114, 104);
             this.panelEmotions.TabIndex = 7;
             // 
             // buttonSave
@@ -137,7 +137,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1064, 495);
+            this.ClientSize = new System.Drawing.Size(1066, 600);
             this.Controls.Add(this.buttonSave);
             this.Controls.Add(this.panelEmotions);
             this.Controls.Add(this.buttonPlay);

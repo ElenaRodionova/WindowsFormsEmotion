@@ -9,18 +9,32 @@ using System.IO;
 using System.Media;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using NAudio.Wave; // NuGet: NAudio
-using Newtonsoft.Json;// NuGet: Install-Package Newtonsoft.Json
+using NAudio.Wave;
+using Newtonsoft.Json;
+using System.Diagnostics;
 
 namespace WindowsFormsEmotion
 {
 
     public partial class Form1 : Form
     {
+        private string pythonScriptPath = "C:\\diplom\\GigaAM\\emotion_analysis.py"; //Укажите свой путь до скрипта
+        string outputDirectory = "C:\\diplom\\GigaAM"; 
         private string audioFilePath = null;
-        private List<EmotionData> emotionDataList = new List<EmotionData>();
         private WaveOutEvent waveOut;
+        private AudioFileReader audioFile;
+        private bool isPaused = false;
+
+        private List<EmotionData> emotionDataList = new List<EmotionData>();
         private string[] availableEmotions = { "Позитив", "Грусть", "Злость", "Нейтральная" };  // Список доступных эмоций
+
+        private static readonly Dictionary<string, string> EmotionMap = new Dictionary<string, string>()
+    {
+        {"neutral", "Нейтральная"},
+        {"angry", "Злость"},
+        {"sad", "Грусть"},
+        {"positive", "Позитив"}
+    };
 
         public Form1()
         {
@@ -30,10 +44,13 @@ namespace WindowsFormsEmotion
 
             InitializeDataGridView();
 
-            pictureBoxStatus.Visible = false; // Скрываем значок статуса
+            DoubleBuffered = true;
             panelEmotions.Visible = false;  // Скрываем панель с эмоциями
         }
 
+        private void Form1_Load(object sender, EventArgs e)
+        {
+        }
         private void InitializeDataGridView()
         {
             //  Настраиваем DataGridView после InitializeComponent()
@@ -101,11 +118,6 @@ namespace WindowsFormsEmotion
             dataGridViewEmotions.CurrentCell = dataGridViewEmotions.Rows[rowIndex].Cells[columnIndex];
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
-
-        }
-
         private void buttonBrowse_Click(object sender, EventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
@@ -119,6 +131,272 @@ namespace WindowsFormsEmotion
 
                 audioFilePath = openFileDialog.FileName;
                 textBoxFilePath.Text = audioFilePath;
+                LoadAudio(audioFilePath);
+            }
+        }
+        private void LoadAudio(string filePath)
+        {
+            try
+            {
+                StopAudio();  // Сначала останавливаем, если что-то уже играет
+                waveOut = new WaveOutEvent();
+                audioFile = new AudioFileReader(filePath);
+                waveOut.Init(audioFile);
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка при загрузке аудио: " + ex.Message);
+            }
+        }
+        
+        private async void buttonRecognize_Click(object sender, EventArgs e)
+        {
+            emotionDataList.Clear();
+            UpdateDataGridView();
+
+            if (string.IsNullOrEmpty(audioFilePath))
+            {
+                MessageBox.Show("Пожалуйста, выберите аудиофайл.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            // Показываем, что процесс начался
+            pictureBoxStatus.SizeMode = PictureBoxSizeMode.Zoom;
+            pictureBoxStatus.Image = Properties.Resources.processing;
+
+            await System.Threading.Tasks.Task.Delay(20);
+
+            try
+            {
+
+                // Передаем путь к audioFilePath как аргумент в RunPythonScript
+                List<EmotionSegment> emotionSegments = RunPythonScript(pythonScriptPath, audioFilePath, outputDirectory);
+
+                if (emotionSegments == null || emotionSegments.Count == 0)
+                {
+                    pictureBoxStatus.SizeMode = PictureBoxSizeMode.Zoom;
+                    pictureBoxStatus.Image = Properties.Resources.error;
+                    MessageBox.Show("Ошибка: Не удалось распознать эмоции.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                foreach (var segment in emotionSegments)
+                {                    
+                    string emotion = ConvertEmotion(segment.emotion);
+
+                    // Добавляем данные об эмоциях.
+                    emotionDataList.Add(new EmotionData
+                    {
+                        Time_start = segment.StartTime,
+                        Time_end = segment.EndTime,
+                        Emotion = emotion,
+                        IsSelected = false,
+                        CorrectEmotion = ""
+                    });
+
+                }
+                UpdateDataGridView();
+
+                pictureBoxStatus.SizeMode = PictureBoxSizeMode.Zoom;
+                pictureBoxStatus.Image = Properties.Resources.success;
+                panelEmotions.Visible = true;
+
+            }
+            catch (Exception ex)
+            {
+                pictureBoxStatus.SizeMode = PictureBoxSizeMode.Zoom;
+                pictureBoxStatus.Image = Properties.Resources.error;
+                MessageBox.Show($"Ошибка при распознавании: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+        }
+
+        public static List<EmotionSegment> RunPythonScript(string scriptPath, string audioFilePath, string outputDirectory)
+        {
+            ProcessStartInfo start = new ProcessStartInfo
+            {
+                FileName = "c:\\diplom\\GigaAM\\.venv\\Scripts\\python.exe", // Укажите свой путь к директории, в которой находится python.exe
+                Arguments = $"\"{scriptPath}\" \"{audioFilePath}\" \"{outputDirectory}\"", // Аргументы: путь к скрипту, путь к аудиофайлу, путь к папке для сохранения сегментов аудиозаписи.
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            string result;
+
+            using (Process process = new Process { StartInfo = start })
+            {
+                process.Start();
+                using (StreamReader reader = new StreamReader(process.StandardOutput.BaseStream, Encoding.UTF8))
+                {
+                    result = reader.ReadToEnd();
+                }
+                process.WaitForExit();
+            }
+           
+            try
+            {
+                // Используем Newtonsoft.Json для десериализации.
+                return JsonConvert.DeserializeObject<List<EmotionSegment>>(result);
+            }
+            catch (JsonException ex)
+            {
+                // Обработка ошибок парсинга JSON
+                MessageBox.Show($"Ошибка парсинга JSON: {ex.Message}. JSON: {result}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error); // Добавлен вывод JSON для отладки
+                return null;
+            }
+        }
+
+        private void UpdateDataGridView()
+        {
+            // Создаем BindingList, чтобы DataGridView автоматически обновлялся
+            BindingList<EmotionData> bindingList = new BindingList<EmotionData>(emotionDataList);
+            dataGridViewEmotions.DataSource = bindingList;
+
+        }
+
+        private void buttonPlay_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(audioFilePath))
+            {
+                MessageBox.Show("Пожалуйста, выберите аудиофайл.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            try
+            {
+                if (waveOut != null && waveOut.PlaybackState == PlaybackState.Playing)
+                {
+                    StopAudio(); // Если уже играет, останавливаем
+                    return;
+                }
+
+                if (waveOut == null || audioFile == null || audioFile.FileName != audioFilePath)
+                {
+                    StopAudio();
+                    waveOut = new WaveOutEvent();
+                    audioFile = new AudioFileReader(audioFilePath);
+                    waveOut.Init(audioFile);
+                }
+
+                buttonPlay.Text = "Остановить";
+                isPaused = !isPaused;
+                waveOut.Play();
+                waveOut.PlaybackStopped += WaveOut_PlaybackStopped;
+
+                // Запускаем отдельный поток для обновления эмоций
+                System.Threading.Tasks.Task.Run(() => PlayAudioWithEmotions(audioFile));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка воспроизведения: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+        }
+
+        private void WaveOut_PlaybackStopped(object sender, StoppedEventArgs e)
+        {
+            this.Invoke((MethodInvoker)delegate
+            {
+                panelEmotions.Controls.Clear();
+            });
+            StopAudio();
+        }
+
+        private void StopAudio()
+        {
+            if (waveOut != null)
+            {
+                waveOut.Stop();
+                waveOut.PlaybackStopped -= WaveOut_PlaybackStopped;
+                waveOut.Dispose();
+                waveOut = null;
+            }
+
+            if (audioFile != null)
+            {
+                audioFile.Position = 0; // Сбрасываем позицию
+                audioFile.Dispose();
+                audioFile = null;
+            }
+
+            isPaused = !isPaused;
+            buttonPlay.Text = "Прослушать запись";
+        }
+        private void PlayAudioWithEmotions(AudioFileReader audioFileReader)
+        {
+            long currentPosition = 0;
+            while (currentPosition < audioFileReader.Length)
+            {
+                if (isPaused)
+                {
+                    System.Threading.Thread.Sleep(50);  // Ждем, пока не будет снята пауза
+                    continue;
+                }
+
+                double currentTimeInSeconds = (double)currentPosition / audioFileReader.WaveFormat.AverageBytesPerSecond;
+                TimeSpan currentTimeSpan = TimeSpan.FromSeconds(currentTimeInSeconds);
+
+                var currentEmotion = emotionDataList
+                    .Where(x => x.Time_start <= currentTimeSpan && x.Time_end >= currentTimeSpan)
+                    .FirstOrDefault();
+
+                int rowIndexToHighlight = -1;
+                if (currentEmotion != null)
+                {
+                    // Находим индекс строки в dataGridViewEmotions, соответствующий currentEmotion
+                    rowIndexToHighlight = emotionDataList.IndexOf(emotionDataList.FirstOrDefault(x => x == currentEmotion));
+                }
+
+                this.Invoke((MethodInvoker)delegate
+                {
+                    panelEmotions.Controls.Clear();
+                    PictureBox pb = new PictureBox();
+                    pb.Dock = DockStyle.Fill;
+                    pb.SizeMode = PictureBoxSizeMode.Zoom;
+                    Image emotionImage = null;
+                    switch (currentEmotion?.Emotion?.ToLower()) //  Безопасный доступ к свойству Emotion и использование null-condition оператора
+                    {
+                        case "позитив":
+                            emotionImage = Properties.Resources.happy;
+                            break;
+                        case "грусть":
+                            emotionImage = Properties.Resources.sad;
+                            break;
+                        case "злость":
+                            emotionImage = Properties.Resources.angry;
+                            break;
+                        case "нейтральная":
+                            emotionImage = Properties.Resources.neutral;
+                            break;
+                        default:
+                            emotionImage = null;
+                            break;
+                    }
+                    pb.Image = emotionImage;
+                    panelEmotions.Controls.Add(pb);
+
+
+                    // Выделение строки в DataGridView
+                    if (rowIndexToHighlight >= 0 && rowIndexToHighlight < dataGridViewEmotions.Rows.Count)  // Проверка границ
+                    {
+                        dataGridViewEmotions.ClearSelection();
+                        dataGridViewEmotions.Rows[rowIndexToHighlight].Selected = true;
+                        dataGridViewEmotions.FirstDisplayedScrollingRowIndex = rowIndexToHighlight;  // Автоматическая прокрутка к текущей строке
+                    }
+                    else
+                    {
+                        dataGridViewEmotions.ClearSelection(); // Сброс выделения, если эмоция не найдена или индекс некорректен
+                    }
+                });
+
+                System.Threading.Thread.Sleep(50); // Уменьшено для более плавной работы
+                if (waveOut == null || waveOut.PlaybackState != PlaybackState.Playing || isPaused)
+                    return;
+                currentPosition = audioFileReader.Position;
+           
             }
         }
 
@@ -151,159 +429,6 @@ namespace WindowsFormsEmotion
                 MessageBox.Show("Ошибка при сохранении данных: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-        private async void buttonRecognize_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrEmpty(audioFilePath))
-            {
-                MessageBox.Show("Пожалуйста, выберите аудиофайл.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            // Показываем, что процесс начался
-            pictureBoxStatus.Visible = true;
-            pictureBoxStatus.SizeMode = PictureBoxSizeMode.Zoom;
-            pictureBoxStatus.Image = Properties.Resources.processing; // Проставьте свою иконку загрузки
-
-            try
-            {
-                // Имитация работы модели (здесь будет реальная модель)
-                await System.Threading.Tasks.Task.Delay(100); // Имитация долгого процесса
-
-
-                // Добавляем данные об эмоциях.
-                emotionDataList.Add(new EmotionData { Time_start = TimeSpan.FromSeconds(0), Time_end = TimeSpan.FromSeconds(3), Emotion = "Позитив", IsSelected = false, CorrectEmotion = "" });
-                emotionDataList.Add(new EmotionData { Time_start = TimeSpan.FromSeconds(3.1), Time_end = TimeSpan.FromSeconds(6.2), Emotion = "Грусть", IsSelected = false, CorrectEmotion = "" });
-                emotionDataList.Add(new EmotionData { Time_start = TimeSpan.FromSeconds(6.3), Time_end = TimeSpan.FromSeconds(9.1), Emotion = "Злость", IsSelected = false, CorrectEmotion = ""});
-                emotionDataList.Add(new EmotionData { Time_start = TimeSpan.FromSeconds(9.2), Time_end = TimeSpan.FromSeconds(12.4), Emotion = "Нейтральная", IsSelected = false, CorrectEmotion = ""});
-                emotionDataList.Add(new EmotionData { Time_start = TimeSpan.FromSeconds(12.5), Time_end = TimeSpan.FromSeconds(16), Emotion = "Позитив", IsSelected = false, CorrectEmotion = "" });
-
-                UpdateDataGridView();
-                pictureBoxStatus.SizeMode = PictureBoxSizeMode.Zoom;
-                pictureBoxStatus.Image = Properties.Resources.success;
-                panelEmotions.Visible = true;
-
-
-            }
-            catch (Exception ex)
-            {
-                pictureBoxStatus.SizeMode = PictureBoxSizeMode.Zoom;
-                pictureBoxStatus.Image = Properties.Resources.error;  // Проставьте свою иконку ошибки
-                MessageBox.Show($"Ошибка при распознавании: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-
-        }
-
-        private void UpdateDataGridView()
-        {
-            // Создаем BindingList, чтобы DataGridView автоматически обновлялся
-            BindingList<EmotionData> bindingList = new BindingList<EmotionData>(emotionDataList);
-            dataGridViewEmotions.DataSource = bindingList;
-
-        }
-
-        private void buttonPlay_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrEmpty(audioFilePath))
-            {
-                MessageBox.Show("Пожалуйста, выберите аудиофайл.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            try
-            {
-                if (waveOut != null && waveOut.PlaybackState == PlaybackState.Playing)
-                {
-                    waveOut.Stop();
-                    waveOut.Dispose();
-                    waveOut = null;
-                    return;
-                }
-
-                waveOut = new WaveOutEvent();
-                var audioFileReader = new AudioFileReader(audioFilePath);
-
-                waveOut.Init(audioFileReader);
-                waveOut.Play();
-                waveOut.PlaybackStopped += WaveOut_PlaybackStopped;
-
-                // Запускаем отдельный поток для обновления эмоций
-                System.Threading.Tasks.Task.Run(() => PlayAudioWithEmotions(audioFileReader));
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка воспроизведения: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-
-        }
-
-        private void WaveOut_PlaybackStopped(object sender, StoppedEventArgs e)
-        {
-            // Здесь выполняем действия по завершению воспроизведения (например, переключение кнопки)
-            if (waveOut != null)
-            {
-                waveOut.Dispose();
-                waveOut = null;
-            }
-            this.Invoke((MethodInvoker)delegate
-            {
-                panelEmotions.Controls.Clear();
-            });
-
-        }
-
-        private void PlayAudioWithEmotions(AudioFileReader audioFileReader)
-        {
-
-            long currentPosition = 0;
-            while (currentPosition < audioFileReader.Length)
-            {
-                double currentTimeInSeconds = (double)currentPosition / audioFileReader.WaveFormat.AverageBytesPerSecond;
-                TimeSpan currentTimeSpan = TimeSpan.FromSeconds(currentTimeInSeconds);
-
-                var currentEmotion = emotionDataList
-                    .Where(x => x.Time_start <= currentTimeSpan && x.Time_end >= currentTimeSpan)
-                    .FirstOrDefault();
-
-                if (currentEmotion != null)
-                {
-                    this.Invoke((MethodInvoker)delegate
-                    {
-                        panelEmotions.Controls.Clear(); // Очищаем прошлые иконки
-                        PictureBox pb = new PictureBox();
-                        pb.Dock = DockStyle.Fill;
-                        pb.SizeMode = PictureBoxSizeMode.Zoom;
-                        switch (currentEmotion.Emotion.ToLower())
-                        {
-                            case "позитив":
-                                pb.Image = Properties.Resources.happy;
-                                break;
-                            case "грусть":
-                                pb.Image = Properties.Resources.sad;
-                                break;
-                            case "злость":
-                                pb.Image = Properties.Resources.angry;
-                                break;
-                            case "нейтральная":
-                                pb.Image = Properties.Resources.neutral;
-                                break;
-                            default:
-                                pb.Image = null;
-                                break;
-
-                        }
-                        panelEmotions.Controls.Add(pb); // Добавляем новую иконку
-                    });
-                }
-
-                System.Threading.Thread.Sleep(100);
-                currentPosition = audioFileReader.Position;
-                if (waveOut == null || waveOut.PlaybackState != PlaybackState.Playing)
-                    return;
-
-            }
-        }
-
         public class EmotionData
         {
             public TimeSpan Time_start { get; set; }
@@ -319,6 +444,46 @@ namespace WindowsFormsEmotion
             }
         }
 
+        public class EmotionSegment
+        {
+            [JsonProperty("start_time")]
+            public double start_time { get; set; }
+
+            [JsonProperty("end_time")] 
+            public double end_time { get; set; }
+
+            [JsonProperty("emotion")]
+            public string emotion { get; set; }
+
+            [JsonIgnore] 
+            public TimeSpan StartTime => TimeSpan.FromSeconds(start_time);
+
+            [JsonIgnore]
+            public TimeSpan EndTime => TimeSpan.FromSeconds(end_time);
+        }
+
+        public static string ConvertEmotion(string englishEmotion)
+        {
+            if (string.IsNullOrEmpty(englishEmotion))
+            {
+                return "Не определено";
+            }
+
+            string lowerCaseEmotion = englishEmotion.ToLower(); // Преобразуем входную строку к нижнему регистру
+
+            if (EmotionMap.ContainsKey(lowerCaseEmotion)) // Ищем в словаре по ключу в нижнем регистре
+            {
+                return EmotionMap[lowerCaseEmotion];
+            }
+
+            if (lowerCaseEmotion.Contains("neutral")) return EmotionMap["neutral"];
+            if (lowerCaseEmotion.Contains("anger")) return EmotionMap["angry"];
+            if (lowerCaseEmotion.Contains("sad")) return EmotionMap["sad"];
+            if (lowerCaseEmotion.Contains("positive") || lowerCaseEmotion.Contains("happy")) return EmotionMap["positive"];
+
+            return "Неизвестно";
+        }
+
         public class Theme
         {
             public Color FormBackColor { get; set; }
@@ -330,8 +495,8 @@ namespace WindowsFormsEmotion
             public Color DataGridViewForeColor { get; set; }
             public Color DataGridViewHeaderBackColor { get; set; }
             public Color DataGridViewHeaderForeColor { get; set; }
-            public Font ControlFont { get; set; } 
-            public Font ButtonFont { get; set; } 
+            public Font ControlFont { get; set; }
+            public Font ButtonFont { get; set; }
             public Font DataGridViewFont { get; set; }
 
         }
@@ -354,7 +519,7 @@ namespace WindowsFormsEmotion
                 ButtonFont = new Font("Segoe UI", 9, FontStyle.Bold),
                 DataGridViewFont = new Font("Segoe UI", 9)
             };
- 
+
         }
 
         private void SetTheme(Theme theme)
