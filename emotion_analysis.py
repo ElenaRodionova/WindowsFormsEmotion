@@ -135,6 +135,7 @@ def split_audio_by_voice_activity(audio_path, output_dir, model, vad_aggressiven
                 results.append({
                     'start_time': start_time,
                     'end_time': end_time,
+                    'emotion2prob': emotion2prob,
                     'emotion': best_emotion
                 })
             except Exception as e:
