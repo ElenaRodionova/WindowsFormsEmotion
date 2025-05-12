@@ -64,23 +64,35 @@ namespace WindowsFormsEmotion
             time_startColumn.DataPropertyName = "Time_start";
             time_startColumn.HeaderText = "Время начало";
             time_startColumn.ReadOnly = true;
+            time_startColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells; //  Автоматическое изменение размера по содержимому
             dataGridViewEmotions.Columns.Add(time_startColumn);
 
             DataGridViewTextBoxColumn time_endColumn = new DataGridViewTextBoxColumn();
             time_endColumn.DataPropertyName = "Time_end";
             time_endColumn.HeaderText = "Время окончания";
             time_endColumn.ReadOnly = true;
+            time_endColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells; //  Автоматическое изменение размера по содержимому
             dataGridViewEmotions.Columns.Add(time_endColumn);
+
+            DataGridViewTextBoxColumn emotion2probColumn = new DataGridViewTextBoxColumn();
+            emotion2probColumn.DataPropertyName = "Emotion2prob";
+            emotion2probColumn.HeaderText = "Вероятности эмоций";
+            emotion2probColumn.ReadOnly = true;
+            emotion2probColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill; // Занимает все доступное место
+            emotion2probColumn.DefaultCellStyle.WrapMode = DataGridViewTriState.True; // Включаем перенос текста
+            dataGridViewEmotions.Columns.Add(emotion2probColumn);
 
             DataGridViewTextBoxColumn emotionColumn = new DataGridViewTextBoxColumn();
             emotionColumn.DataPropertyName = "Emotion";
             emotionColumn.HeaderText = "Эмоция";
             emotionColumn.ReadOnly = true;
+            emotionColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells; //  Автоматическое изменение размера по содержимому
             dataGridViewEmotions.Columns.Add(emotionColumn);
 
             DataGridViewCheckBoxColumn matchColumn = new DataGridViewCheckBoxColumn();
             matchColumn.DataPropertyName = "IsSelected";
             matchColumn.HeaderText = "Соответствие";
+            matchColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells; //  Автоматическое изменение размера по содержимому
             dataGridViewEmotions.Columns.Add(matchColumn);
 
             DataGridViewComboBoxColumn correctEmotionColumn = new DataGridViewComboBoxColumn();
@@ -88,15 +100,18 @@ namespace WindowsFormsEmotion
             correctEmotionColumn.HeaderText = "Верная эмоция";
             correctEmotionColumn.DataSource = availableEmotions; // Задаем список доступных эмоций
             correctEmotionColumn.DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox;  //  Стиль отображения
+            correctEmotionColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells; //  Автоматическое изменение размера по содержимому
             dataGridViewEmotions.Columns.Add(correctEmotionColumn);
 
+            dataGridViewEmotions.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells; // Автоматическое изменение высоты строк
         }
+
         private void dataGridViewEmotions_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             int rowIndex = e.RowIndex;
             int columnIndex = e.ColumnIndex;
 
-            if (rowIndex >= 0 && columnIndex == 3)
+            if (rowIndex >= 0 && columnIndex == 4)
             {
                 // Обработка нажатия на CheckBox
                 emotionDataList[rowIndex].IsSelected = !emotionDataList[rowIndex].IsSelected;
@@ -165,7 +180,7 @@ namespace WindowsFormsEmotion
             pictureBoxStatus.SizeMode = PictureBoxSizeMode.Zoom;
             pictureBoxStatus.Image = Properties.Resources.processing;
 
-            await System.Threading.Tasks.Task.Delay(20);
+            await System.Threading.Tasks.Task.Delay(10);
 
             try
             {
@@ -185,11 +200,14 @@ namespace WindowsFormsEmotion
                 {                    
                     string emotion = ConvertEmotion(segment.emotion);
 
+                    string emotion2prob = ConvertEmotionProbabilitiesToString(segment.emotion2prob);
+
                     // Добавляем данные об эмоциях.
                     emotionDataList.Add(new EmotionData
                     {
                         Time_start = segment.StartTime,
                         Time_end = segment.EndTime,
+                        Emotion2prob = emotion2prob, 
                         Emotion = emotion,
                         IsSelected = false,
                         CorrectEmotion = ""
@@ -433,6 +451,7 @@ namespace WindowsFormsEmotion
         {
             public TimeSpan Time_start { get; set; }
             public TimeSpan Time_end { get; set; }
+            public string Emotion2prob { get; set; }
             public string Emotion { get; set; }
             public bool IsSelected { get; set; }
             public string CorrectEmotion { get; set; }
@@ -454,6 +473,9 @@ namespace WindowsFormsEmotion
 
             [JsonProperty("emotion")]
             public string emotion { get; set; }
+
+            [JsonProperty("emotion2prob")]
+            public Dictionary<string, double> emotion2prob { get; set; }
 
             [JsonIgnore] 
             public TimeSpan StartTime => TimeSpan.FromSeconds(start_time);
@@ -483,6 +505,19 @@ namespace WindowsFormsEmotion
 
             return "Неизвестно";
         }
+
+        private static string ConvertEmotionProbabilitiesToString(Dictionary<string, double> emotionProbabilities)
+        {
+            if (emotionProbabilities == null || emotionProbabilities.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var keyValuePairs = emotionProbabilities.Select(kvp => $"{ConvertEmotion(kvp.Key)}: {kvp.Value:F4}"); // F4 - формат для 4 знаков после запятой
+
+            return string.Join(", ", keyValuePairs);
+        }
+
 
         public class Theme
         {

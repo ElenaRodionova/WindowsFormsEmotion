@@ -44,7 +44,7 @@
             // labelFilePath
             // 
             this.labelFilePath.AutoSize = true;
-            this.labelFilePath.Location = new System.Drawing.Point(0, 14);
+            this.labelFilePath.Location = new System.Drawing.Point(0, 17);
             this.labelFilePath.Name = "labelFilePath";
             this.labelFilePath.Size = new System.Drawing.Size(98, 16);
             this.labelFilePath.TabIndex = 0;
@@ -52,14 +52,14 @@
             // 
             // textBoxFilePath
             // 
-            this.textBoxFilePath.Location = new System.Drawing.Point(106, 12);
+            this.textBoxFilePath.Location = new System.Drawing.Point(106, 15);
             this.textBoxFilePath.Name = "textBoxFilePath";
-            this.textBoxFilePath.Size = new System.Drawing.Size(374, 22);
+            this.textBoxFilePath.Size = new System.Drawing.Size(730, 22);
             this.textBoxFilePath.TabIndex = 1;
             // 
             // buttonBrowse
             // 
-            this.buttonBrowse.Location = new System.Drawing.Point(486, 12);
+            this.buttonBrowse.Location = new System.Drawing.Point(842, 14);
             this.buttonBrowse.Name = "buttonBrowse";
             this.buttonBrowse.Size = new System.Drawing.Size(134, 30);
             this.buttonBrowse.TabIndex = 2;
@@ -69,7 +69,7 @@
             // 
             // buttonRecognize
             // 
-            this.buttonRecognize.Location = new System.Drawing.Point(628, 12);
+            this.buttonRecognize.Location = new System.Drawing.Point(982, 14);
             this.buttonRecognize.Name = "buttonRecognize";
             this.buttonRecognize.Size = new System.Drawing.Size(190, 30);
             this.buttonRecognize.TabIndex = 3;
@@ -92,13 +92,13 @@
             this.dataGridViewEmotions.ReadOnly = true;
             this.dataGridViewEmotions.RowHeadersWidth = 51;
             this.dataGridViewEmotions.RowTemplate.Height = 24;
-            this.dataGridViewEmotions.Size = new System.Drawing.Size(803, 422);
+            this.dataGridViewEmotions.Size = new System.Drawing.Size(1160, 480);
             this.dataGridViewEmotions.TabIndex = 5;
             this.dataGridViewEmotions.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridViewEmotions_CellContentClick);
             // 
             // buttonPlay
             // 
-            this.buttonPlay.Location = new System.Drawing.Point(629, 43);
+            this.buttonPlay.Location = new System.Drawing.Point(982, 47);
             this.buttonPlay.Name = "buttonPlay";
             this.buttonPlay.Size = new System.Drawing.Size(189, 30);
             this.buttonPlay.TabIndex = 6;
@@ -110,14 +110,14 @@
             // 
             this.panelEmotions.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.panelEmotions.Location = new System.Drawing.Point(888, 14);
+            this.panelEmotions.Location = new System.Drawing.Point(1178, 208);
             this.panelEmotions.Name = "panelEmotions";
             this.panelEmotions.Size = new System.Drawing.Size(114, 104);
             this.panelEmotions.TabIndex = 7;
             // 
             // buttonSave
             // 
-            this.buttonSave.Location = new System.Drawing.Point(485, 43);
+            this.buttonSave.Location = new System.Drawing.Point(842, 47);
             this.buttonSave.Name = "buttonSave";
             this.buttonSave.Size = new System.Drawing.Size(134, 30);
             this.buttonSave.TabIndex = 8;
@@ -127,9 +127,9 @@
             // 
             // pictureBoxStatus
             // 
-            this.pictureBoxStatus.Location = new System.Drawing.Point(825, 14);
+            this.pictureBoxStatus.Location = new System.Drawing.Point(1205, 14);
             this.pictureBoxStatus.Name = "pictureBoxStatus";
-            this.pictureBoxStatus.Size = new System.Drawing.Size(35, 35);
+            this.pictureBoxStatus.Size = new System.Drawing.Size(65, 65);
             this.pictureBoxStatus.TabIndex = 4;
             this.pictureBoxStatus.TabStop = false;
             // 
@@ -137,7 +137,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1066, 600);
+            this.ClientSize = new System.Drawing.Size(1304, 600);
             this.Controls.Add(this.buttonSave);
             this.Controls.Add(this.panelEmotions);
             this.Controls.Add(this.buttonPlay);
